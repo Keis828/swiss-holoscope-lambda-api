@@ -1,0 +1,9 @@
+# holoscope Lambda用依存パッケージ（Lambda環境対応版）
+boto3>=1.34.0
+requests>=2.31.0
+skyfield>=1.46
+jplephem>=2.21
+numpy>=1.24.0,<2.0.0
+pytz>=2024.1
+pyswisseph==2.10.3.2
+pytest>=8.2.0

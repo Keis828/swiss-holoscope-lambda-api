@@ -1,0 +1,163 @@
+# 概要:
+#   holoscope用のPython3.12 Lambda/API Gateway構成SAMテンプレート
+# 主な仕様:
+#   - ランタイム: python3.12
+#   - API Gateway: /api/v1/holoscope/create (POST)
+#   - S3バケット名や環境変数はGo版を最大限反映
+#   - 必要なIAM権限はS3リードとDynamoDBリードのみ
+#   - Layer指定はPythonランタイムのため不要
+# 制限事項:
+#   - 実際の占星術ロジックは未実装
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Api:
+    Cors:
+      AllowMethods: "'POST,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization'"
+      AllowOrigin: "'*'"
+  Function:
+    Runtime: python3.12
+    Timeout: 60
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        HoloscopeEnv: !FindInMap
+          - EnvMap
+          - !Ref Env
+          - HoloscopeEnv
+        TZ: !FindInMap
+          - EnvMap
+          - !Ref Env
+          - TZ
+        AwsDynamoDBEndpointURL: !FindInMap
+          - EnvMap
+          - !Ref Env
+          - AwsDynamoDBEndpointURL
+        AwsDynamoDBRegion: !FindInMap
+          - EnvMap
+          - !Ref Env
+          - AwsDynamoDBRegion
+        AwsDynamoDBDisableSSL: !FindInMap
+          - EnvMap
+          - !Ref Env
+          - AwsDynamoDBDisableSSL
+        AwsKey: dummy
+        AwsPassword: dummy
+        AwsToken: dummy
+        LogEncoding: !FindInMap
+          - EnvMap
+          - !Ref Env
+          - LogEncoding
+        LogLevel: !FindInMap
+          - EnvMap
+          - !Ref Env
+          - LogLevel
+        # CORSと天文歴の設定は環境変数に外出し
+        CORS_ALLOWED_ORIGINS: !Ref CorsAllowedOrigins
+        EPHEMERIS_S3_BUCKET: !Ref EphemerisBucketName
+        EPHEMERIS_S3_KEY: !Ref EphemerisJplKey
+        SWISS_SEPL_KEY: !Ref SwissSeplKey
+        SWISS_SEMO_KEY: !Ref SwissSemoKey
+        SWISS_SEAS_KEY: !Ref SwissSeasKey
+
+Parameters:
+  EphemerisBucketName:
+    Type: String
+    Description: S3に用意したDE421 ephemerisファイル格納バケット名
+    Default: hoshiyomi-ephemeris-bucket
+  EphemerisJplKey:
+    Type: String
+    Description: S3上のJPL BSPファイルキー（例: de432s.bsp）
+    Default: de432s.bsp
+  SwissSeplKey:
+    Type: String
+    Description: Swiss Ephemeris SEPLファイルキー（例: sepl_18.se1）
+    Default: sepl_18.se1
+  SwissSemoKey:
+    Type: String
+    Description: Swiss Ephemeris SEMOファイルキー（例: semo_18.se1）
+    Default: semo_18.se1
+  SwissSeasKey:
+    Type: String
+    Description: Swiss Ephemeris SEASファイルキー（例: seas_18.se1）
+    Default: seas_18.se1
+  Env:
+    Type: String
+    AllowedValues:
+      - prd
+      - dev
+      - local
+    Default: dev
+  CorsAllowedOrigins:
+    Type: String
+    Description: カンマ区切りの許可Origin一覧（例: https://example.com,http://localhost:3000）
+    Default: "*"
+
+Mappings:
+  EnvMap:
+    prd:
+      HoloscopeEnv: prd
+      TZ: UTC
+      AwsDynamoDBEndpointURL: http://dynamodb:8000
+      AwsDynamoDBRegion: ap-northeast-1
+      AwsDynamoDBDisableSSL: false
+      LogEncoding: json
+      LogLevel: info
+    dev:
+      HoloscopeEnv: dev
+      TZ: UTC
+      AwsDynamoDBEndpointURL: http://dynamodb:8000
+      AwsDynamoDBRegion: ap-northeast-1
+      AwsDynamoDBDisableSSL: true
+      LogEncoding: json
+      LogLevel: debug
+    local:
+      HoloscopeEnv: local
+      TZ: UTC
+      AwsDynamoDBEndpointURL: http://dynamodb:8000
+      AwsDynamoDBRegion: ap-northeast-1
+      AwsDynamoDBDisableSSL: true
+      LogEncoding: json
+      LogLevel: debug
+
+Resources:
+  HoshiyomiHoloscopeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      MemorySize: 1024
+      Timeout: 300
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref EphemerisBucketName
+      Events:
+        Create:
+          Type: Api
+          Properties:
+            Path: /api/v1/holoscope/create
+            Method: POST
+        Houses:
+          Type: Api
+          Properties:
+            Path: /api/v1/holoscope/houses
+            Method: POST
+      Environment:
+        Variables:
+          CORS_ALLOWED_ORIGINS: !Ref CorsAllowedOrigins
+          EPHEMERIS_S3_BUCKET: !Ref EphemerisBucketName
+          EPHEMERIS_S3_KEY: !Ref EphemerisJplKey
+          SWISS_SEPL_KEY: !Ref SwissSeplKey
+          SWISS_SEMO_KEY: !Ref SwissSemoKey
+          SWISS_SEAS_KEY: !Ref SwissSeasKey
+          PATH: /var/lang/bin:/usr/local/bin:/usr/bin:/bin
+          LD_LIBRARY_PATH: /var/lang/lib:/lib64:/usr/lib64:/var/runtime:/var/runtime/lib:/var/task:/var/task/lib:/opt/lib
+          PYTHONPATH: /var/runtime:/var/task:/opt/python
+          # NumPy/Skyfield最適化
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
