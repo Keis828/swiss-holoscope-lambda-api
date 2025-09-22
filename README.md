@@ -35,7 +35,7 @@ python scripts/fetch_ephemeris.py --download-jpl true \
 ### 環境変数
 - CORS
   - `CORS_ALLOWED_ORIGINS`: カンマ区切りの許可 Origin（例: `https://example.com,http://localhost:3000`）
-- 天文歴
+- 天文暦
   - `EPHEMERIS_S3_BUCKET`: S3 バケット名
   - `EPHEMERIS_S3_KEY`: JPL BSP ファイルキー（例: `de432s.bsp`）
   - `SWISS_SEPL_KEY` / `SWISS_SEMO_KEY` / `SWISS_SEAS_KEY`: Swiss Ephemeris ファイルキー
@@ -69,15 +69,10 @@ make deploy PROFILE=default S3_BUCKET=your-sam-artifacts-bucket \
 ```
 
 ### ライセンス（AGPL-3.0）
-本プロジェクトは GNU Affero General Public License v3.0（AGPL-3.0）に基づき公開しています。ネットワーク越しの利用者に対してもソースコードの提供が必要です。詳細は `LICENSE` を参照してください。
+本プロジェクトは GNU Affero General Public License v3.0（AGPL-3.0）に基づき公開しています。
+詳細は `LICENSE` を参照してください。
 
 公開/配布時の注意:
 - 改変した場合は改変部分のソースも公開してください。
 - 本プロジェクトをサービスとして提供する場合も、対応するソースへのアクセス手段を提供してください。
 - Swiss Ephemeris ファイルの再配布ポリシーに留意してください（本リポジトリでは同梱しません）。
-
-### 開発メモ
-- CORS 設定は `CORS_ALLOWED_ORIGINS` で集中管理
-- 大容量データ（`.bsp`, `.se1`）は `.gitignore` 済み
-- テストは Skyfield を前提とし、`/tmp/de432s.bsp` が無ければ自動取得/コピーします
-
