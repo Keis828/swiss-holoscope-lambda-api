@@ -23,7 +23,7 @@ pip install -r requirements.txt
 2) 環境変数ファイルの用意（任意）
 - `envs/local.json.example` を参考に `envs/local.json` を作成するか、SAM の `--env-vars`/`--parameter-overrides` を使用してください。
 
-3) 天文歴データの取得
+3) 天文暦データの取得
 ```bash
 python scripts/fetch_ephemeris.py --download-jpl true \
   --jpl-url https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de432s.bsp
