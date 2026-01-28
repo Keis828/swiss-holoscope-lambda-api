@@ -52,7 +52,7 @@ make api PROFILE=default ENV=local ENV_VARS_FILE=envs/local.json
 ### デプロイ（例）
 ```bash
 make deploy PROFILE=default S3_BUCKET=your-sam-artifacts-bucket \
-  REGION=ap-northeast-1 STACK_NAME=hoshiyomi-holoscope-server \
+  REGION=ap-northeast-1 STACK_NAME=ametuchi-holoscope-server \
   PARAM_OVERRIDES="Env=dev EphemerisBucketName=your-ephemeris-bucket CorsAllowedOrigins=https://example.com"
 ```
 

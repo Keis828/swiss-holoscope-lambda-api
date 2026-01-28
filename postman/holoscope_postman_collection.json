@@ -1,0 +1,123 @@
+{
+	"info": {
+		"_postman_id": "holoscope-api-collection-001",
+		"name": "Ametuchi Holoscope API",
+		"description": "西洋占星術（ホロスコープ）計算API用Postmanコレクション\n\n## エンドポイント\n- `/api/v1/holoscope/create` - ネイタルチャート生成\n- `/api/v1/holoscope/houses` - ハウス分割計算",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Holoscope Create (Natal Chart)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"date\": \"199010211000\",\n  \"location\": {\n    \"latitude\": 35.0116,\n    \"longitude\": 135.7681,\n    \"tz\": \"Asia/Tokyo\"\n  },\n  \"system\": \"placidus\",\n  \"engine\": \"skyfield\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{holoscope_base_url}}/api/v1/holoscope/create",
+					"host": [
+						"{{holoscope_base_url}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"holoscope",
+						"create"
+					]
+				},
+				"description": "ネイタルチャート（出生図）を生成します。\n\n## リクエストボディ\n- `date` (string, 必須): 生年月日時 `YYYYMMDDHHMM` 形式\n- `location` (object, 必須):\n  - `latitude` (number): 緯度\n  - `longitude` (number): 経度\n  - `tz` (string): タイムゾーン (例: Asia/Tokyo)\n- `system` (string, 任意): ハウスシステム (placidus, whole-sign 等)\n- `engine` (string, 任意): 計算エンジン (skyfield, swiss)"
+			},
+			"response": []
+		},
+		{
+			"name": "Holoscope Create (Transit - Today)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"date\": \"202601241200\",\n  \"location\": {\n    \"latitude\": 35.6895,\n    \"longitude\": 139.6917,\n    \"tz\": \"Asia/Tokyo\"\n  },\n  \"system\": \"placidus\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{holoscope_base_url}}/api/v1/holoscope/create",
+					"host": [
+						"{{holoscope_base_url}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"holoscope",
+						"create"
+					]
+				},
+				"description": "トランジット（現在の天体配置）を取得します。\n日運計算などで使用します。"
+			},
+			"response": []
+		},
+		{
+			"name": "Houses Calculation",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"datetime\": \"1990-10-21T10:00:00+09:00\",\n  \"latitude\": 35.0116,\n  \"longitude\": 135.7681,\n  \"system\": \"placidus\",\n  \"engine\": \"skyfield\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{holoscope_base_url}}/api/v1/holoscope/houses",
+					"host": [
+						"{{holoscope_base_url}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"holoscope",
+						"houses"
+					]
+				},
+				"description": "ハウス分割のみを計算します。\n\n## リクエストボディ\n- `datetime` (string, 必須): ISO8601形式の日時\n- `latitude` (number, 必須): 緯度\n- `longitude` (number, 必須): 経度\n- `system` (string, 任意): ハウスシステム\n- `engine` (string, 任意): 計算エンジン"
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "holoscope_base_url",
+			"value": "http://127.0.0.1:3001",
+			"type": "string",
+			"description": "ホロスコープAPIのベースURL（ローカル: 3001, 本番: AWS API Gateway URL）"
+		}
+	]
+}

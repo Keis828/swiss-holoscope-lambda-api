@@ -4,16 +4,18 @@
 主な仕様:
     - ユーザー情報、天体位置、ハウス、エレメント、3区分を計算しレスポンスを生成
     - 天体・ハウス計算は今後専用モジュールに委譲可能な構造
-    - 出生地名のみの場合、hoshiyomi-api-serverのAPIから都市情報を取得
+    - 出生地名のみの場合、ametuchi-api-serverのAPIから都市情報を取得
 制限事項:
     - 一部ロジックはダミー実装
 """
 from typing import Any, Dict
-from .holoscope_model import UserInfo, PlanetInfo, HouseInfo, SignInfo, ElementsInfo, QualitiesInfo, Location, ResponseHoloscopeCreate
+from .holoscope_model import UserInfo, PlanetInfo, HouseInfo, SignInfo, ElementsInfo, QualitiesInfo, Location, ResponseHoloscopeCreate, AsteroidInfo
 import math
 from datetime import datetime, timezone, timedelta
 from .calculate_planets import calculate_planets
 from .calculate_houses import calculate_houses
+from .calculate_aspects import calculate_aspects
+from .calculate_asteroids import calculate_asteroids
 import os
 import requests
 from skyfield.api import Loader
@@ -143,7 +145,7 @@ class HoloscopeService:
             # まずS3から/tmpへダウンロードを試行（存在しない場合のみ）
             tmp_eph_path = os.path.join(tmp_dir, 'de432s.bsp')
             if not os.path.exists(tmp_eph_path):
-                bucket = os.environ.get('EPHEMERIS_S3_BUCKET', 'hoshiyomi-ephemeris-bucket')
+                bucket = os.environ.get('EPHEMERIS_S3_BUCKET', 'ametuchi-ephemeris-bucket')
                 key = os.environ.get('EPHEMERIS_S3_KEY', 'de432s.bsp')
                 try:
                     import boto3
@@ -168,14 +170,14 @@ class HoloscopeService:
 
             # 最終チェック: /tmpにファイルが無ければエラー
             if not os.path.exists(tmp_eph_path):
-                raise FileNotFoundError(f"Ephemeris file not available at {tmp_eph_path}. Provide s3://{os.environ.get('EPHEMERIS_S3_BUCKET', 'hoshiyomi-ephemeris-bucket')}/{os.environ.get('EPHEMERIS_S3_KEY', 'de432s.bsp')} or bundle de432s.bsp.")
+                raise FileNotFoundError(f"Ephemeris file not available at {tmp_eph_path}. Provide s3://{os.environ.get('EPHEMERIS_S3_BUCKET', 'ametuchi-ephemeris-bucket')}/{os.environ.get('EPHEMERIS_S3_KEY', 'de432s.bsp')} or bundle de432s.bsp.")
             
             # Swiss Ephemeris 標準ファイルもS3から取得（/tmp/ephe に配置）
             try:
                 swiss_dir = os.path.join(tmp_dir, 'ephe')
                 if not os.path.isdir(swiss_dir):
                     os.makedirs(swiss_dir, exist_ok=True)
-                bucket = os.environ.get('EPHEMERIS_S3_BUCKET', 'hoshiyomi-ephemeris-bucket')
+                bucket = os.environ.get('EPHEMERIS_S3_BUCKET', 'ametuchi-ephemeris-bucket')
                 se_keys = {
                     'sepl_18.se1': os.environ.get('SWISS_SEPL_KEY', 'sepl_18.se1'),
                     'semo_18.se1': os.environ.get('SWISS_SEMO_KEY', 'semo_18.se1'),
@@ -336,6 +338,30 @@ class HoloscopeService:
                     p.house = i+1
                     break
 
+    def _assign_asteroids_to_houses(self, asteroids, houses):
+        """
+        小惑星の黄経からハウス番号を割り当てる
+        :param asteroids: List[AsteroidInfo]
+        :param houses: List[HouseInfo]
+        :return: None（asteroidsのhouseフィールドを直接更新）
+        """
+        # ハウスカスプの黄経リスト（1室〜12室、360度循環）
+        cusps = [h.longitude for h in houses]
+        for a in asteroids:
+            lon = a.longitude % 360
+            # 12室分ループ
+            for i in range(12):
+                start = cusps[i]
+                end = cusps[(i+1)%12]
+                # 360度循環を考慮
+                if start < end:
+                    in_house = start <= lon < end
+                else:
+                    in_house = lon >= start or lon < end
+                if in_house:
+                    a.house = i+1
+                    break
+
     def create(self, req: Dict[str, Any]) -> ResponseHoloscopeCreate:
         """
         ホロスコープ作成リクエストを受けて計算結果を返す
@@ -396,19 +422,36 @@ class HoloscopeService:
             
             # 時刻をタイムゾーン考慮して正しく変換
             # date_strを解析（例: "198208281503"）
-            dt_naive = datetime.strptime(date_str, "%Y%m%d%H%M")
-            
-            # タイムゾーンを適用
-            if tz and tz != "UTC":
-                # 指定されたタイムゾーンで解析
-                local_tz = pytz.timezone(tz)
-                dt_local = local_tz.localize(dt_naive)
-                dt_utc = dt_local.astimezone(timezone.utc)
+            # 日付文字列のパース（ISO8601 または YYYYMMDDHHMM）
+            dt_parsed = None
+            try:
+                # 1. ISO 8601形式（例: "2023-01-01T12:00:00+09:00"）
+                # fromisoformatはPython 3.7+で利用可能、Z対応は3.11+だが念のため置換
+                dt_parsed = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            except ValueError:
+                try:
+                     # 2. 従来形式（例: "198208281503"）
+                     dt_parsed = datetime.strptime(date_str, "%Y%m%d%H%M")
+                except ValueError:
+                    raise ValueError(f"Unknown date format: {date_str}. Expected ISO8601 or YYYYMMDDHHMM")
+
+            # UTCへの変換
+            if dt_parsed.tzinfo is not None:
+                # 既にタイムゾーン情報がある場合は、それを尊重してUTCへ変換
+                # ただし、リクエストでtzが明示され、かつISO文字列のoffsetと矛盾する場合の考慮も可能だが
+                # 基本的にはISO文字列のoffsetを優先するか、あるいはnaive扱いにするかが設計次第。
+                # ここではISO文字列のoffsetを正とする（標準的な挙動）。
+                dt_utc = dt_parsed.astimezone(timezone.utc)
             else:
-                # UTCとして扱う
-                dt_utc = dt_naive.replace(tzinfo=timezone.utc)
+                # なければ指定されたタイムゾーンまたはUTCとみなす
+                if tz and tz != "UTC":
+                    local_tz = pytz.timezone(tz)
+                    dt_local = local_tz.localize(dt_parsed)
+                    dt_utc = dt_local.astimezone(timezone.utc)
+                else:
+                    dt_utc = dt_parsed.replace(tzinfo=timezone.utc)
                 
-            print(f"create: Parsed datetime - local: {dt_naive}, timezone: {tz}, UTC: {dt_utc}")
+            print(f"create: Parsed datetime - local: {dt_parsed}, timezone: {tz}, UTC: {dt_utc}")
             
             planet_dicts = calculate_planets(dt_utc, float(location["latitude"]), float(location["longitude"]), eph=self.eph, ts=self.ts)
             print(f"create: Planet calculation completed, got {len(planet_dicts)} planets")
@@ -454,6 +497,37 @@ class HoloscopeService:
             elements = self._calculate_elements(planets, ascendant, descendant, mc, ic)
             qualities = self._calculate_qualities(planets, ascendant, descendant, mc, ic)
 
+
+            # アスペクト計算
+            print(f"create: Calculating aspects")
+            print(f"create: Planets for aspect calc: {[f'{p.name}({p.longitude})' for p in planets]}")
+            aspects = calculate_aspects(planets)
+            print(f"create: Aspect calculation completed, found {len(aspects)} aspects")
+
+            # 小惑星・リリス計算
+            print(f"create: Calculating asteroids and Black Moon Lilith")
+            try:
+                asteroid_data = calculate_asteroids(dt_utc, float(location["latitude"]), float(location["longitude"]))
+                asteroids = []
+                for a in asteroid_data:
+                    if a.get("longitude") is not None:
+                        asteroid = AsteroidInfo(
+                            name=a["name_jp"],
+                            name_en=a["name_en"],
+                            sign=a["sign"],
+                            longitude=a["longitude"],
+                            house=0,  # 後で割り当て
+                            retrograde=a["retrograde"],
+                            speed=a.get("speed", 0.0)
+                        )
+                        asteroids.append(asteroid)
+                # 小惑星にもハウスを割り当て
+                self._assign_asteroids_to_houses(asteroids, houses)
+                print(f"create: Asteroid calculation completed, found {len(asteroids)} asteroids")
+            except Exception as asteroid_error:
+                print(f"create: Asteroid calculation failed: {asteroid_error}")
+                asteroids = []
+
             print(f"create: Holoscope calculation completed successfully")
             return ResponseHoloscopeCreate(
                 userInfo=userInfo,
@@ -464,7 +538,9 @@ class HoloscopeService:
                 mc=mc,
                 ic=ic,
                 elements=elements,
-                qualities=qualities
+                qualities=qualities,
+                aspects=aspects,
+                asteroids=asteroids
             )
         except Exception as e:
             print(f"create: Error occurred: {str(e)}")

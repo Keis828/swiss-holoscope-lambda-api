@@ -67,22 +67,22 @@ Parameters:
   EphemerisBucketName:
     Type: String
     Description: S3に用意したDE421 ephemerisファイル格納バケット名
-    Default: hoshiyomi-ephemeris-bucket
+    Default: ametuchi-api-lambda-resource
   EphemerisJplKey:
     Type: String
-    Description: S3上のJPL BSPファイルキー（例: de432s.bsp）
+    Description: "S3上のJPL BSPファイルキー（例: de432s.bsp）"
     Default: de432s.bsp
   SwissSeplKey:
     Type: String
-    Description: Swiss Ephemeris SEPLファイルキー（例: sepl_18.se1）
+    Description: "Swiss Ephemeris SEPLファイルキー（例: sepl_18.se1）"
     Default: sepl_18.se1
   SwissSemoKey:
     Type: String
-    Description: Swiss Ephemeris SEMOファイルキー（例: semo_18.se1）
+    Description: "Swiss Ephemeris SEMOファイルキー（例: semo_18.se1）"
     Default: semo_18.se1
   SwissSeasKey:
     Type: String
-    Description: Swiss Ephemeris SEASファイルキー（例: seas_18.se1）
+    Description: "Swiss Ephemeris SEASファイルキー（例: seas_18.se1）"
     Default: seas_18.se1
   Env:
     Type: String
@@ -93,7 +93,7 @@ Parameters:
     Default: dev
   CorsAllowedOrigins:
     Type: String
-    Description: カンマ区切りの許可Origin一覧（例: https://example.com,http://localhost:3000）
+    Description: "カンマ区切りの許可Origin一覧（例: https://example.com,http://localhost:3000）"
     Default: "*"
 
 Mappings:
@@ -124,7 +124,7 @@ Mappings:
       LogLevel: debug
 
 Resources:
-  HoshiyomiHoloscopeFunction:
+  AmetuchiHoloscopeFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: .

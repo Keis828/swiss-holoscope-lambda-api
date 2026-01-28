@@ -138,7 +138,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "mc": to_dict(result.mc),
                 "ic": to_dict(result.ic),
                 "elements": to_dict(result.elements),
-                "qualities": to_dict(result.qualities)
+                "qualities": to_dict(result.qualities),
+                "aspects": [to_dict(a) for a in result.aspects],
+                "asteroids": [to_dict(a) for a in result.asteroids]
             }
             return {
                 "statusCode": 200,

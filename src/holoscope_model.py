@@ -108,6 +108,50 @@ class Location:
         self.longitude = longitude
         self.tz = tz
 
+class AspectInfo:
+    """
+    アスペクト情報
+    :param planet1: str 天体1の名前
+    :param planet2: str 天体2の名前
+    :param type: str アスペクト名（Conjunction, Trine, etc.）
+    :param angle: float 定義上の角度（0, 60, 90...）
+    :param actual_angle: float 実際の角度差
+    :param orb: float 誤差（オーブ）
+    :param aspect_type: str 'major' or 'minor'
+    :param is_hard: bool ハードアスペクトかどうか
+    """
+    def __init__(self, planet1: str, planet2: str, type: str, angle: float, actual_angle: float, orb: float, aspect_type: str, is_hard: bool):
+        self.planet1 = planet1
+        self.planet2 = planet2
+        self.type = type
+        self.angle = angle
+        self.actual_angle = actual_angle
+        self.orb = orb
+        self.aspect_type = aspect_type
+        self.is_hard = is_hard
+
+
+class AsteroidInfo:
+    """
+    小惑星・感受点情報
+    :param name: str 天体名（日本語）
+    :param name_en: str 天体名（英語）
+    :param sign: str 星座名 (例: "牡羊座")
+    :param longitude: float 黄道座標における経度
+    :param house: int 所在ハウス番号
+    :param retrograde: bool 逆行しているか
+    :param speed: float 移動速度（度/日）
+    """
+    def __init__(self, name: str = "", name_en: str = "", sign: str = "", longitude: float = 0.0, house: int = 0, retrograde: bool = False, speed: float = 0.0):
+        self.name = name
+        self.name_en = name_en
+        self.sign = sign
+        self.longitude = longitude
+        self.house = house
+        self.retrograde = retrograde
+        self.speed = speed
+
+
 class ResponseHoloscopeCreate:
     """
     ホロスコープ作成APIのレスポンス
@@ -120,8 +164,10 @@ class ResponseHoloscopeCreate:
     :param ic: SignInfo IC情報
     :param elements: ElementsInfo エレメント集計
     :param qualities: QualitiesInfo 3区分集計
+    :param aspects: List[AspectInfo] アスペクト情報リスト
+    :param asteroids: List[AsteroidInfo] 小惑星・感受点情報リスト
     """
-    def __init__(self, userInfo: UserInfo, planets: List[PlanetInfo], houses: List[HouseInfo], ascendant: SignInfo, descendant: SignInfo, mc: SignInfo, ic: SignInfo, elements: ElementsInfo, qualities: QualitiesInfo):
+    def __init__(self, userInfo: UserInfo, planets: List[PlanetInfo], houses: List[HouseInfo], ascendant: SignInfo, descendant: SignInfo, mc: SignInfo, ic: SignInfo, elements: ElementsInfo, qualities: QualitiesInfo, aspects: List[AspectInfo] = [], asteroids: List[AsteroidInfo] = []):
         self.userInfo = userInfo
         self.planets = planets
         self.houses = houses
@@ -130,4 +176,6 @@ class ResponseHoloscopeCreate:
         self.mc = mc
         self.ic = ic
         self.elements = elements
-        self.qualities = qualities 
+        self.qualities = qualities
+        self.aspects = aspects
+        self.asteroids = asteroids 
